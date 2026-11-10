@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Multiagente e MCP</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: carta náutica de estudo. Sumário fixo à esquerda (gaveta no celular), coluna de leitura enxuta, um slide por seção. */
+:root{
+  --paper:#E9EFF1; --surface:#FFFFFF; --surface-2:#F2F6F7; --ink:#0D1D2A; --muted:#4A5E6C; --line:#C4D1D8; --grid:rgba(10,107,120,.08);
+  --accent:#0A6B78; --accent-ink:#FFFFFF; --accent-soft:#D3EAEE;
+  --signal:#C24515; --signal-soft:#FAE1D5;
+  --ok:#1B7040; --ok-soft:#DBF0E2; --bad:#AE2A20; --bad-soft:#F7DDDA; --warn:#8F5500; --warn-soft:#FAEACB;
+  --code-bg:#0F2230; --code-ink:#D6E5EB; --code-key:#7FD3DD; --code-str:#F4B78D; --code-num:#B9E28C;
+  --f-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,"Courier New",monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0A151E; --surface:#112230; --surface-2:#0E1C28; --ink:#E1EBEF; --muted:#93A8B5; --line:#27404F; --grid:rgba(79,195,207,.07);
+  --accent:#4FC3CF; --accent-ink:#06222A; --accent-soft:#123A44;
+  --signal:#FF8B5A; --signal-soft:#3D2117;
+  --ok:#62C98C; --ok-soft:#123323; --bad:#FF7D72; --bad-soft:#3B1916; --warn:#F2B650; --warn-soft:#3A2A0F;
+  --code-bg:#07121A; --code-ink:#D6E5EB; --code-key:#7FD3DD; --code-str:#F4B78D; --code-num:#B9E28C;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#0A151E; --surface:#112230; --surface-2:#0E1C28; --ink:#E1EBEF; --muted:#93A8B5; --line:#27404F; --grid:rgba(79,195,207,.07);
+  --accent:#4FC3CF; --accent-ink:#06222A; --accent-soft:#123A44;
+  --signal:#FF8B5A; --signal-soft:#3D2117;
+  --ok:#62C98C; --ok-soft:#123323; --bad:#FF7D72; --bad-soft:#3B1916; --warn:#F2B650; --warn-soft:#3A2A0F;
+  --code-bg:#07121A; --code-ink:#D6E5EB; --code-key:#7FD3DD; --code-str:#F4B78D; --code-num:#B9E28C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+html{scroll-behavior:smooth;scroll-padding-top:calc(76px + env(safe-area-inset-top,0px))}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:1.0625rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+a{color:var(--accent)}
+code{font-family:var(--f-mono);font-size:.88em}
+.mono{font-family:var(--f-mono)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.05}
+h3{font-size:1.35rem;font-weight:600;letter-spacing:.01em}
+p{margin:0}
+
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar-in{display:flex;align-items:center;gap:16px;min-height:56px;max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.02em;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.brand span{color:var(--accent)}
+.where{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.progress{position:absolute;left:0;bottom:-1px;height:3px;background:var(--accent);width:0;transition:width .15s linear}
+.toc-btn{display:none}
+
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:56px;max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.toc{position:sticky;top:calc(56px + env(safe-area-inset-top,0px));align-self:start;max-height:calc(100vh - 56px - env(safe-area-inset-top,0px));overflow-y:auto;padding-block:28px 40px;font-size:.9rem}
+.toc h4{font-family:var(--f-mono);font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.toc h4:first-of-type{margin-top:0}
+.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:1px}
+.toc a{display:flex;gap:8px;padding:4px 8px;border-radius:4px;color:var(--muted);text-decoration:none;line-height:1.35}
+.toc a .n{font-family:var(--f-mono);font-size:.72rem;opacity:.7;min-width:1.6em;padding-top:2px}
+.toc a:hover{color:var(--ink);background:var(--surface-2)}
+.toc a.active{color:var(--accent);background:var(--accent-soft);font-weight:700}
+.toc-close{display:none}
+main{min-width:0;padding-bottom:80px}
+
+.sec{padding-block:48px;border-top:1px solid var(--line);display:grid;gap:20px;max-width:860px}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.sec h2{font-size:clamp(1.9rem,1.3rem + 2vw,2.6rem);font-weight:600}
+.prose{max-width:68ch}
+.callout{border-radius:var(--r);padding:14px 18px;display:grid;gap:4px;max-width:72ch;background:var(--accent-soft)}
+.callout.warn{background:var(--warn-soft)}
+.callout.bad{background:var(--bad-soft)}
+.callout b.t{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+
+.hero{padding-block:64px 56px;display:grid;gap:14px;max-width:980px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+.hero h1{font-size:clamp(3rem,2rem + 5vw,5.4rem);font-weight:700;line-height:.92}
+.hero .lead{font-size:1.35rem}
+
+.part{padding-block:44px;border-top:1px solid var(--line);max-width:980px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+.part .num{font-family:var(--f-mono);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--signal);font-weight:600}
+.part h2{font-size:clamp(2.6rem,1.8rem + 4vw,4.4rem);font-weight:700;margin-top:6px}
+.part p{font-size:1.25rem;color:var(--muted);margin-top:8px}
+
+.btn{font:inherit;font-size:.92rem;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r);padding:8px 14px;line-height:1.2}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn:disabled:hover{border-color:var(--line);color:var(--ink)}
+.btn.primary:disabled:hover{color:var(--accent-ink);border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-block;font-family:var(--f-mono);font-size:.72rem;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.chip.today{background:var(--signal-soft);color:var(--signal);border-color:transparent}
+.chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.chip.acc{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+thead th{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2)}
+td.k{font-weight:700;white-space:nowrap}
+th.now,td.now{background:var(--accent-soft)}
+
+pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);font-family:var(--f-mono);font-size:.82rem;line-height:1.55;padding:14px 16px;border-radius:var(--r);overflow-x:auto}
+pre.code .tk{color:var(--code-key)} pre.code .ts{color:var(--code-str)} pre.code .tn,pre.code .tb{color:var(--code-num)}
+
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:grid;gap:8px;align-content:start;min-width:0}
+.card .lbl{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .ex{font-family:var(--f-mono);font-size:.82rem;background:var(--surface-2);border-radius:4px;padding:6px 8px;overflow-wrap:anywhere}
+.card.after{border-color:var(--accent)}
+ul.clean{margin:0;padding-left:1.1em;display:grid;gap:4px}
+ul.clean li::marker{color:var(--accent)}
+
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;font-weight:700;font-size:.92rem;line-height:1.25;transition:background .25s,border-color .25s,transform .25s}
+.node small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.node.agent{border-color:var(--accent)}
+.node.field{font-family:var(--f-mono);font-weight:600;font-size:.8rem;background:var(--surface-2);border-style:dashed}
+.node.code{font-family:var(--f-mono);font-size:.82rem;background:var(--warn-soft);border-color:transparent}
+.node.on{background:var(--accent-soft);border-color:var(--accent);transform:translateY(-2px)}
+.node.blocked{background:var(--bad-soft);border-color:var(--bad)}
+.arr{color:var(--muted);font-family:var(--f-mono);font-size:.85rem}
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.mini{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mini-col{display:grid;gap:6px}
+
+.ladder{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;align-items:end;height:240px}
+.step{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r) var(--r) 0 0;padding:10px 8px;display:flex;flex-direction:column;gap:4px;text-align:left;min-width:0;transition:background .2s,border-color .2s}
+.step .lv{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em}
+.step .nm{font-family:var(--f-display);font-weight:600;font-size:1.05rem;line-height:1.05}
+.step.today{border-color:var(--signal)}
+.step.today .lv{color:var(--signal);font-weight:600}
+.step[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.ladder-axis{display:flex;justify-content:flex-end;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);border-top:2px solid var(--ink);padding-top:6px}
+.ladder-detail{display:flex;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.ladder-detail .big{font-family:var(--f-display);font-size:3.6rem;font-weight:700;line-height:.85;color:var(--accent)}
+
+.lab{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:grid;gap:16px;min-width:0}
+.gauge{position:relative;height:110px;margin:0 8px}
+.gauge .track{position:absolute;left:0;right:0;top:60px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--ok-soft),var(--ok-soft) 40%,var(--bad-soft) 40%)}
+.gauge .tick{position:absolute;top:70px;transform:translateX(-50%);font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.gauge .limit{position:absolute;top:20px;height:56px;border-left:2px dashed var(--bad)}
+.gauge .limit span{position:absolute;left:6px;top:-4px;font-family:var(--f-mono);font-size:.72rem;color:var(--bad);font-weight:600;white-space:nowrap}
+.gauge .ship{position:absolute;top:40px;transform:translateX(-50%);transition:left 1s cubic-bezier(.5,0,.2,1);display:grid;justify-items:center}
+.gauge .ship b{font-family:var(--f-mono);font-size:.78rem;background:var(--ink);color:var(--paper);padding:2px 6px;border-radius:4px;white-space:nowrap}
+.gauge .ship i{width:14px;height:14px;border-radius:50%;background:var(--ink);border:3px solid var(--surface);margin-top:4px}
+.banner{border-radius:var(--r);padding:12px 14px;font-weight:700}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.bad{background:var(--bad-soft);color:var(--bad)}
+.banner.warn{background:var(--warn-soft);color:var(--warn)}
+.banner.info{background:var(--surface-2);color:var(--muted);font-weight:400}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:inherit;font-size:.9rem;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:6px 12px;display:inline-flex;gap:8px;align-items:center}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tab[aria-selected="true"] .chip{background:var(--surface);color:var(--ink)}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{cursor:pointer}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:inline-block;border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;font-size:.88rem;background:var(--surface)}
+.seg span small{display:block;font-family:var(--f-mono);font-size:.68rem;color:var(--muted)}
+.seg input:checked + span{border-color:var(--accent);background:var(--accent-soft)}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:.9rem}
+.switch input{appearance:none;-webkit-appearance:none;width:38px;height:22px;border-radius:11px;background:var(--line);position:relative;cursor:pointer;flex:none;margin:0;transition:background .2s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:transform .2s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(16px)}
+
+.timeline{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.timeline li{border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;background:var(--surface-2);font-size:.92rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;animation:pop .35s ease}
+.timeline li .who{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.timeline li.cur{border-color:var(--accent);background:var(--surface)}
+@keyframes pop{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
+
+.graph{overflow-x:auto;padding:8px}
+.graph svg{display:block;min-width:600px;width:100%;height:auto}
+.g-node rect{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.g-node text{fill:var(--ink);font-family:var(--f-body);font-weight:700;font-size:15px}
+.g-node .sub{fill:var(--muted);font-family:var(--f-mono);font-weight:400;font-size:11px}
+.g-node.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
+.g-node.code rect{stroke-dasharray:5 4}
+.g-node.okn.on rect{fill:var(--ok-soft);stroke:var(--ok)}
+.g-node.badn.on rect{fill:var(--bad-soft);stroke:var(--bad)}
+.g-edge{fill:none;stroke:var(--muted);stroke-width:1.5;transition:stroke .25s}
+.g-edge.on{stroke:var(--accent);stroke-width:2.5}
+.g-lbl{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+.g-head{fill:var(--muted)}
+
+.flips{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.flip{font:inherit;text-align:left;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r);padding:14px 16px;display:grid;gap:8px;align-content:start}
+.flip .t{font-weight:700;line-height:1.3}
+.flip .why{font-size:.88rem;color:var(--muted)}
+.flip .hint{font-family:var(--f-mono);font-size:.72rem;color:var(--accent)}
+.flip .fix{display:none;border-top:1px dashed var(--line);padding-top:8px;font-size:.92rem}
+.flip .fix b{color:var(--ok);font-family:var(--f-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;display:block}
+.flip[aria-expanded="true"]{border-color:var(--ok)}
+.flip[aria-expanded="true"] .fix{display:block}
+.flip[aria-expanded="true"] .hint{display:none}
+
+.seq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px}
+.lanes{display:grid;gap:6px;align-content:start}
+.lanes .heads{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--f-display);font-weight:600;font-size:1.1rem;text-align:center}
+.lanes .heads div{border:1px solid var(--line);border-radius:var(--r);padding:6px;background:var(--surface-2)}
+.msg{font:inherit;cursor:pointer;background:none;border:1px solid transparent;border-radius:var(--r);padding:8px 6px;display:grid;gap:4px;color:var(--ink);text-align:center}
+.msg .line{height:2px;background:var(--muted);position:relative;margin:0 8%}
+.msg .line::after{content:"";position:absolute;top:-5px;border:6px solid transparent}
+.msg.r .line::after{right:-6px;border-left-color:var(--muted)}
+.msg.l .line::after{left:-6px;border-right-color:var(--muted)}
+.msg .txt{font-family:var(--f-mono);font-size:.78rem}
+.msg[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.msg[aria-current="true"] .line{background:var(--accent)}
+.msg.r[aria-current="true"] .line::after{border-left-color:var(--accent)}
+.msg.l[aria-current="true"] .line::after{border-right-color:var(--accent)}
+
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:s}
+.steps li{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:grid;gap:6px;align-content:start;transition:background .3s,border-color .3s}
+.steps li::before{counter-increment:s;content:counter(s);font-family:var(--f-display);font-size:2.2rem;font-weight:700;line-height:1;color:var(--accent)}
+.steps li span{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.steps li.on{background:var(--accent-soft);border-color:var(--accent)}
+.steps li.bad span{color:var(--bad);font-weight:600}
+.steps li.ok span{color:var(--ok);font-weight:600}
+
+.layers{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.layer{flex:1 1 150px;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface-2);display:grid;gap:6px;align-content:start;transition:background .3s,border-color .3s,opacity .3s;min-width:0}
+.layer .t{font-weight:700}
+.layer .d{font-size:.82rem;color:var(--muted)}
+.layer .res{font-family:var(--f-mono);font-size:.75rem;min-height:1.4em}
+.layer.off{opacity:.45;border-style:dashed}
+.layer.pass{border-color:var(--ok)}
+.layer.block{background:var(--bad-soft);border-color:var(--bad)}
+.layer.active{border-color:var(--accent);background:var(--accent-soft)}
+.layer.end{flex:0 1 120px}
+.layer.end.hit-ok{background:var(--ok-soft);border-color:var(--ok)}
+.layer.end.hit-bad{background:var(--bad-soft);border-color:var(--bad)}
+
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
+details.qa summary{cursor:pointer;font-weight:700;list-style:none;display:flex;gap:10px}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"+";font-family:var(--f-mono);color:var(--accent);font-weight:600}
+details.qa[open] summary::before{content:"−"}
+details.qa p{margin-top:10px;color:var(--muted)}
+
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  .toc-btn{display:inline-flex}
+  .toc{display:none;position:fixed;inset:0;z-index:40;max-height:none;background:var(--surface);padding:calc(16px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+  .toc.open{display:block}
+  .toc-close{display:inline-flex;margin-bottom:12px}
+}
+@media (max-width:760px){
+  .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2,.seq,.steps{grid-template-columns:minmax(0,1fr)}
+  .ladder{height:200px;gap:4px}
+  .step{padding:8px 5px}
+  .step .nm{font-size:.85rem}
+  .where{display:none}
+}
+@media (max-width:460px){
+  .grid4{grid-template-columns:minmax(0,1fr)}
+  .step .nm{display:none}
+  .ladder{height:160px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#inicio">Multiagente <span>&amp;</span> MCP</a>
+    <div class="where" id="where">Semana 2</div>
+    <button class="btn toc-btn" id="toc-open" aria-controls="toc" aria-expanded="false">Sumário</button>
+  </div>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="Sumário">
+  <button class="btn toc-close" id="toc-close">Fechar sumário</button>
+  <h4>Abertura</h4>
+  <ol>
+    <li><a href="#escada"><span class="n">02</span>Escada de maturidade</a></li>
+    <li><a href="#agente-unico"><span class="n">03</span>Um agente que responde</a></li>
+    <li><a href="#o-que-muda"><span class="n">04</span>O que muda</a></li>
+  </ol>
+  <h4>Parte 1 · Multiagente</h4>
+  <ol>
+    <li><a href="#problema"><span class="n">06</span>Um agente pode errar</a></li>
+    <li><a href="#agente"><span class="n">07</span>O que é um agente?</a></li>
+    <li><a href="#multiagente"><span class="n">08</span>Sistema multiagente</a></li>
+    <li><a href="#por-que"><span class="n">09</span>Por que mais de um?</a></li>
+    <li><a href="#padroes"><span class="n">10</span>Padrões</a></li>
+    <li><a href="#langgraph"><span class="n">11</span>No LangGraph</a></li>
+    <li><a href="#exemplo"><span class="n">12</span>O exemplo, passo a passo</a></li>
+    <li><a href="#revisor"><span class="n">13</span>Revisor independente</a></li>
+    <li><a href="#laco"><span class="n">14</span>Laço com limite</a></li>
+    <li><a href="#desafio-multi"><span class="n">15</span>No desafio final</a></li>
+    <li><a href="#armadilhas-multi"><span class="n">16</span>Armadilhas</a></li>
+  </ol>
+  <h4>Parte 2 · MCP</h4>
+  <ol>
+    <li><a href="#mcp-problema"><span class="n">18</span>Agentes que só conversam</a></li>
+    <li><a href="#mcp"><span class="n">19</span>O que é MCP?</a></li>
+    <li><a href="#local-vs-mcp"><span class="n">20</span>Tool local × MCP</a></li>
+    <li><a href="#descobrir"><span class="n">21</span>Descobrir e chamar</a></li>
+    <li><a href="#leitura-mutavel"><span class="n">22</span>Leitura × mutável</a></li>
+    <li><a href="#versao"><span class="n">23</span>Versão de estado</a></li>
+    <li><a href="#idempotencia"><span class="n">24</span>Idempotência</a></li>
+    <li><a href="#erros"><span class="n">25</span>Erros são dados</a></li>
+    <li><a href="#camadas"><span class="n">26</span>Defesa em camadas</a></li>
+    <li><a href="#identidade"><span class="n">27</span>Identidade</a></li>
+    <li><a href="#armadilhas-mcp"><span class="n">28</span>Armadilhas</a></li>
+  </ol>
+  <h4>Fechamento</h4>
+  <ol>
+    <li><a href="#nivel"><span class="n">29</span>O nível que subimos</a></li>
+    <li><a href="#resumo"><span class="n">30</span>Resumo</a></li>
+    <li><a href="#fixar"><span class="n">31</span>Para fixar</a></li>
+    <li><a href="#proximo"><span class="n">32</span>Próximo passo: RAG</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section class="hero" id="inicio" data-title="Multiagente e MCP">
+  <div class="eyebrow">Semana 2 do curso de agentes · LangChain, LangGraph e o desafio Orquestrando o Oceano</div>
+  <h1>Multiagente e MCP</h1>
+  <p class="lead">De um agente que responde para um sistema que age.</p>
+</section>
+
+<section class="sec" id="escada" data-title="A escada de maturidade">
+  <div class="eyebrow">Slide 02</div>
+  <h2>A escada de maturidade dos agentes</h2>
+  <div>
+    <div class="ladder" id="ladder" role="group" aria-label="Níveis da escada"></div>
+    <div class="ladder-axis"><span>mais autonomia, mais risco, mais proteção necessária →</span></div>
+  </div>
+  <div class="ladder-detail" id="ladder-detail" aria-live="polite"></div>
+</section>
+
+<section class="sec" id="agente-unico" data-title="Um agente que responde">
+  <div class="eyebrow">Slide 03</div>
+  <h2>Até agora: um agente que responde</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node">Pergunta do operador</div><span class="arr">→</span>
+      <div class="node agent">classify<small>decide o caminho</small></div><span class="arr">→</span>
+      <div class="node agent">analyze ⇄ tools<small>calcula</small></div><span class="arr">→</span>
+      <div class="node">Humano aprova o texto</div><span class="arr">→</span>
+      <div class="node field">Recomendação (texto)</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Limites do agente único</h3>
+    <ul class="clean">
+      <li>Uma única "cabeça" analisa e decide</li>
+      <li>Ninguém confere o que ele concluiu</li>
+      <li>Ferramentas locais, no mesmo programa</li>
+      <li>A saída é só texto: nada muda no mundo</li>
+      <li>O humano aprova uma recomendação, não uma ação</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec" id="o-que-muda" data-title="O que muda">
+  <div class="eyebrow">Slide 04</div>
+  <h2>O que muda de agora em diante</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th></th><th>Até agora (semana 1)</th><th class="now">Agora (semana 2)</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Quantos agentes</td><td>1</td><td class="now">2 ou mais, com papéis diferentes</td></tr>
+        <tr><td class="k">Quem confere</td><td>Ninguém (ou o humano, ao final)</td><td class="now">Outro agente, de forma independente</td></tr>
+        <tr><td class="k">Onde ficam as tools</td><td>No próprio programa</td><td class="now">Em um servidor separado (MCP)</td></tr>
+        <tr><td class="k">O que a saída causa</td><td>Um texto de recomendação</td><td class="now">Uma mudança real no estado do navio</td></tr>
+        <tr><td class="k">Maior risco</td><td>Resposta errada</td><td class="now">Ação errada, repetida ou com dado velho</td></tr>
+        <tr><td class="k">Proteções novas</td><td>Validação em código</td><td class="now">Revisão, versão de estado e idempotência</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="part" id="parte1">
+  <div class="num">Parte 1</div>
+  <h2>Multiagente</h2>
+  <p>Dois agentes, dois papéis, uma decisão melhor.</p>
+</div>
+
+<section class="sec" id="problema" data-title="Um agente pode errar">
+  <div class="eyebrow">Slide 06</div>
+  <h2>O problema: um agente sozinho pode errar</h2>
+  <div class="lab">
+    <div class="row">
+      <span class="chip">S1-FAROL</span><span class="chip">Rota direta</span><span class="chip">14 nós</span><span class="chip warn">Tempestade</span>
+    </div>
+    <div class="gauge" id="gauge" aria-hidden="true">
+      <div class="track"></div>
+      <div class="limit" id="g-limit"><span>limite seguro: 12 nós na rota direta</span></div>
+      <div class="ship" id="g-ship"><b>S1-FAROL · 14 nós</b><i></i></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="g-propor">Navegador propõe "Reduza 1 nó"</button>
+      <button class="btn" id="g-reset">Reiniciar</button>
+    </div>
+    <div class="banner info" id="g-msg" aria-live="polite">S1-FAROL a 14 nós, rota direta, tempestade à frente.</div>
+  </div>
+</section>
+
+<section class="sec" id="agente" data-title="O que é um agente?">
+  <div class="eyebrow">Slide 07</div>
+  <h2>O que é um agente?</h2>
+  <div class="grid4">
+    <div class="card"><span class="lbl">Papel</span><p>O prompt define quem ele é e o que faz</p><span class="ex">"Você é o agente de segurança"</span></div>
+    <div class="card"><span class="lbl">Saída estruturada</span><p>Devolve um objeto validado, não texto solto</p><span class="ex">Revisao(aprovado, motivo)</span></div>
+    <div class="card"><span class="lbl">Estado</span><p>Lê e escreve campos compartilhados</p><span class="ex">lê proposta, escreve revisao</span></div>
+    <div class="card"><span class="lbl">Ferramentas</span><p>Opcional: consultar e agir</p><span class="ex">get_fleet_state, set_speed</span></div>
+  </div>
+  <div class="callout"><p>Em LangGraph, um agente é um nó (ou grupo de nós) com papel próprio.</p></div>
+</section>
+
+<section class="sec" id="multiagente" data-title="Sistema multiagente">
+  <div class="eyebrow">Slide 08</div>
+  <h2>O que é um sistema multiagente?</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node agent">Navegador<small>propõe</small></div><span class="arr">→</span>
+      <div class="node field">proposta</div><span class="arr">→</span>
+      <div class="node agent">Revisor<small>confere</small></div><span class="arr">→</span>
+      <div class="node field">revisão</div><span class="arr">→</span>
+      <div class="node">Decisão</div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>A ideia</h3>
+      <ul class="clean">
+        <li>Vários agentes, cada um com um papel</li>
+        <li>Colaboram para resolver o problema</li>
+        <li>Como em uma revisão de código: quem escreve não aprova o próprio trabalho</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>O que os torna diferentes</h3>
+      <ul class="clean">
+        <li>Papel próprio (prompt)</li>
+        <li>Conhecimento próprio</li>
+        <li>Identidade própria</li>
+      </ul>
+      <p><b>Não basta mudar o nome.</b></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="por-que" data-title="Por que mais de um?">
+  <div class="eyebrow">Slide 09</div>
+  <h2>Por que usar mais de um agente?</h2>
+  <div class="grid4">
+    <div class="card"><h3>Especialização</h3><p>Um cuida de navegação, outro de segurança</p></div>
+    <div class="card"><h3>Revisão independente</h3><p>Quem confere não é quem propôs</p></div>
+    <div class="card"><h3>Isolamento de falhas</h3><p>Se um falha, o outro continua</p></div>
+    <div class="card"><h3>Auditoria</h3><p>Cada decisão tem proposta e revisão registradas</p></div>
+  </div>
+  <div class="callout warn"><p><b>O custo existe:</b> mais chamadas ao LLM, mais latência, mais coisas para coordenar. Use quando o ganho compensa.</p></div>
+</section>
+
+<section class="sec" id="padroes" data-title="Padrões de colaboração">
+  <div class="eyebrow">Slide 10</div>
+  <h2>Padrões comuns de colaboração</h2>
+  <div class="tabs" role="tablist" id="pat-tabs"></div>
+  <div class="lab" id="pat-panel" role="tabpanel" aria-live="polite"></div>
+</section>
+
+<section class="sec" id="langgraph" data-title="Colaboração no LangGraph">
+  <div class="eyebrow">Slide 11</div>
+  <h2>Como os agentes colaboram no LangGraph</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node agent">navegador<small>agente</small></div><span class="arr">→</span>
+      <div class="node field">proposta<small>campo do estado</small></div><span class="arr">→</span>
+      <div class="node agent">revisor<small>agente</small></div><span class="arr">→</span>
+      <div class="node field">revisao<small>campo do estado</small></div><span class="arr">→</span>
+      <div class="node code">routing<small>código</small></div>
+    </div>
+  </div>
+  <div class="lab">
+    <div class="row">
+      <div class="seg">
+        <label><input type="radio" name="rt-ap" value="1" id="rt-ap-1" checked><span>aprovado</span></label>
+        <label><input type="radio" name="rt-ap" value="0" id="rt-ap-0"><span>rejeitado</span></label>
+      </div>
+      <div class="seg">
+        <label><input type="radio" name="rt-rd" value="1" id="rt-rd-1" checked><span>rodada 1</span></label>
+        <label><input type="radio" name="rt-rd" value="2" id="rt-rd-2"><span>rodada 2</span></label>
+      </div>
+    </div>
+    <div class="tbl">
+      <table>
+        <tbody id="rt-rules">
+          <tr data-r="fin"><td>aprovado</td><td>→ <b>finalizar</b></td></tr>
+          <tr data-r="nav"><td>rejeitado e rodada &lt; 2</td><td>→ <b>navegador</b></td></tr>
+          <tr data-r="esc"><td>rejeitado e rodada = 2</td><td>→ <b>escalar</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="callout"><p>A decisão de qual caminho seguir é código, lendo o campo <code>revisao</code>.</p></div>
+</section>
+
+<section class="sec" id="exemplo" data-title="O exemplo, passo a passo">
+  <div class="eyebrow">Slide 12</div>
+  <h2>O exemplo do exercício, passo a passo</h2>
+  <div class="lab">
+    <div class="seg">
+      <label><input type="radio" name="sim-navio" value="S1-FAROL" id="sim-s1" checked><span>S1-FAROL<small>direta, 14 nós</small></span></label>
+      <label><input type="radio" name="sim-navio" value="S2-MARE" id="sim-s2"><span>S2-MARE<small>protegida, 16 nós</small></span></label>
+      <label><input type="radio" name="sim-navio" value="S3-CORAL" id="sim-s3"><span>S3-CORAL<small>sem tempestade</small></span></label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="sim-step">Próximo passo</button>
+      <button class="btn" id="sim-play">Executar tudo</button>
+      <button class="btn" id="sim-reset">Reiniciar</button>
+    </div>
+    <div class="graph diagram">
+      <svg viewBox="0 0 680 210" role="img" aria-label="Grafo: navegador, revisor, routing, finalizar ou escalar">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="g-head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <path class="g-edge" id="e-nr" d="M140,95 L198,95" marker-end="url(#ah)"/>
+        <text class="g-lbl" x="169" y="85" text-anchor="middle">proposta</text>
+        <path class="g-edge" id="e-rr" d="M320,95 L378,95" marker-end="url(#ah)"/>
+        <text class="g-lbl" x="349" y="85" text-anchor="middle">revisao</text>
+        <path class="g-edge" id="e-fin" d="M490,85 L538,48" marker-end="url(#ah)"/>
+        <text class="g-lbl" x="500" y="56" text-anchor="end">aprovado</text>
+        <path class="g-edge" id="e-esc" d="M490,105 L538,142" marker-end="url(#ah)"/>
+        <text class="g-lbl" x="500" y="142" text-anchor="end">rodada = 2</text>
+        <path class="g-edge" id="e-loop" d="M435,120 L435,190 L80,190 L80,122" marker-end="url(#ah)"/>
+        <text class="g-lbl" x="258" y="182" text-anchor="middle">rejeitado (rodada &lt; 2): volta com o feedback</text>
+        <g class="g-node" id="n-navegador"><rect x="20" y="70" width="120" height="50" rx="6"/><text x="80" y="92" text-anchor="middle">Navegador</text><text class="sub" x="80" y="109" text-anchor="middle">propõe</text></g>
+        <g class="g-node" id="n-revisor"><rect x="200" y="70" width="120" height="50" rx="6"/><text x="260" y="92" text-anchor="middle">Revisor</text><text class="sub" x="260" y="109" text-anchor="middle">confere</text></g>
+        <g class="g-node code" id="n-routing"><rect x="380" y="70" width="110" height="50" rx="6"/><text x="435" y="92" text-anchor="middle">routing</text><text class="sub" x="435" y="109" text-anchor="middle">código</text></g>
+        <g class="g-node okn" id="n-finalizar"><rect x="540" y="18" width="125" height="46" rx="6"/><text x="602" y="39" text-anchor="middle">Aprovado</text><text class="sub" x="602" y="55" text-anchor="middle">finalizar</text></g>
+        <g class="g-node badn" id="n-escalar"><rect x="540" y="122" width="125" height="46" rx="6"/><text x="602" y="143" text-anchor="middle">Escalar</text><text class="sub" x="602" y="159" text-anchor="middle">sem comando</text></g>
+      </svg>
+    </div>
+    <ol class="timeline" id="sim-tl"></ol>
+    <div class="banner info" id="sim-banner" aria-live="polite">Clique em "Próximo passo".</div>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Navio</th><th></th><th>Rodadas</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td class="k">S1-FAROL</td><td>direta, 14 nós</td><td>2 rodadas</td><td><code>SET_SPEED 12</code></td></tr>
+        <tr><td class="k">S2-MARE</td><td>protegida, 16 nós</td><td>1 rodada</td><td><code>SET_SPEED 15</code></td></tr>
+        <tr><td class="k">S3-CORAL</td><td>sem tempestade</td><td>1 rodada</td><td><code>NO_ACTION</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="revisor" data-title="Revisor independente">
+  <div class="eyebrow">Slide 13</div>
+  <h2>Revisor independente</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="color:var(--ok)">O revisor VÊ</h3>
+      <ul class="clean">
+        <li>A ação proposta: <code>SET_SPEED</code>, 13 nós</li>
+        <li>Os dados do navio: rota, tempestade</li>
+        <li>A tabela de limites (12 e 15 nós)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--bad)">O revisor NÃO vê</h3>
+      <ul class="clean">
+        <li>O motivo do navegador</li>
+        <li>O raciocínio que levou à proposta</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><b class="t">Por quê?</b><p>Uma justificativa bem escrita pode "convencer" o revisor. Ele precisa julgar o fato: 13 nós é maior que 12 nós.</p></div>
+  <p class="prose">Conhecimento assimétrico, de propósito: o navegador só sabe "reduza 1 nó"; o revisor conhece os limites.</p>
+</section>
+
+<section class="sec" id="laco" data-title="Laço com limite">
+  <div class="eyebrow">Slide 14</div>
+  <h2>Laço com limite de rodadas</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="node agent">Navegador</div><span class="arr">→</span>
+      <div class="node agent">Revisor</div><span class="arr">→</span>
+      <div class="mini-col">
+        <div class="node" style="border-color:var(--ok)">Aprovado</div>
+        <div class="node" style="border-color:var(--warn)">rejeitado (rodada &lt; 2)<small>volta com o feedback</small></div>
+        <div class="node" style="border-color:var(--bad)">Escalar (sem comando)<small>rodada = 2 sem acordo</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="callout"><p><code>MAX_RODADAS = 2</code> fica em <code>routing.py</code> (código), não no prompt.</p></div>
+</section>
+
+<section class="sec" id="desafio-multi" data-title="No desafio final">
+  <div class="eyebrow">Slide 15</div>
+  <h2>Multiagente no desafio final</h2>
+  <div class="grid2">
+    <div class="card"><h3>Mínimo de 2 agentes</h3><p>Distintos, autenticados e que participam das mesmas decisões</p></div>
+    <div class="card"><h3>Proposta e revisão</h3><p>De agentes diferentes, sobre a mesma ação, antes do comando</p></div>
+    <div class="card"><h3>Decisão antes do comando</h3><p>Cada decisão é registrada antes de virar comando</p></div>
+    <div class="card"><h3>1 comando por navio e tick</h3><p>Sem prioridade controlada pelo cliente</p></div>
+  </div>
+  <div class="callout"><p>O que você vai montar é a versão simples: <b>proposta → revisão → decisão</b>.</p></div>
+</section>
+
+<section class="sec" id="armadilhas-multi" data-title="Armadilhas de multiagente">
+  <div class="eyebrow">Slide 16</div>
+  <h2>Armadilhas de multiagente</h2>
+  <div class="flips" id="flips-multi"></div>
+</section>
+
+<div class="part" id="parte2">
+  <div class="num">Parte 2</div>
+  <h2>MCP</h2>
+  <p>Como os agentes agem no mundo, com segurança.</p>
+</div>
+
+<section class="sec" id="mcp-problema" data-title="Agentes que só conversam">
+  <div class="eyebrow">Slide 18</div>
+  <h2>O problema: agentes que só conversam não mudam nada</h2>
+  <div class="lab">
+    <div class="flow" id="chain">
+      <div class="node">Telemetria</div><span class="arr">→</span>
+      <div class="node agent">Agentes</div><span class="arr">→</span>
+      <div class="node" style="border-color:var(--signal)">Servidor MCP</div><span class="arr">→</span>
+      <div class="node">API de transações</div><span class="arr">→</span>
+      <div class="node">Simulador</div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="ch-go">Enviar uma decisão</button>
+      <button class="btn" id="ch-short">Agente → simulador direto</button>
+    </div>
+    <div class="banner info" id="ch-msg" aria-live="polite">Os agentes não falam direto com o simulador. O servidor MCP é a porta de entrada e impõe as regras.</div>
+  </div>
+  <div class="callout bad"><p>É aqui que o risco muda: uma decisão errada agora tem efeito real.</p></div>
+</section>
+
+<section class="sec" id="mcp" data-title="O que é MCP?">
+  <div class="eyebrow">Slide 19</div>
+  <h2>O que é MCP?</h2>
+  <p class="prose">Um protocolo aberto que padroniza como um cliente descobre e chama ferramentas de um servidor.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Peça</th><th>Papel</th><th>No exercício 2</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Servidor</td><td>Expõe as tools e aplica as regras</td><td><code>mcp_server/server.py</code></td></tr>
+        <tr><td class="k">Cliente</td><td>Descobre e chama as tools</td><td><code>src/utils/mcp_client.py</code></td></tr>
+        <tr><td class="k">Tool</td><td>Função com nome, descrição e schema</td><td><code>get_fleet_state</code>, <code>set_speed</code></td></tr>
+        <tr><td class="k">Transporte</td><td>Como cliente e servidor conversam</td><td>HTTP local (<code>127.0.0.1:8000/mcp</code>)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="local-vs-mcp" data-title="Tool local × MCP">
+  <div class="eyebrow">Slide 20</div>
+  <h2>Tool local × tool MCP</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th></th><th>Tool local (semana 1)</th><th class="now">Tool MCP (semana 2)</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Onde vive</td><td>No mesmo programa do agente</td><td class="now">Em outro processo (o servidor)</td></tr>
+        <tr><td class="k">Como o modelo a vê</td><td>Nome, descrição e schema</td><td class="now">Igual</td></tr>
+        <tr><td class="k">Quem aplica as regras</td><td>O seu código, dentro do agente</td><td class="now">O servidor</td></tr>
+        <tr><td class="k">Quem pode usar</td><td>Só aquele programa</td><td class="now">Qualquer cliente MCP</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout"><p>Para o modelo, nada muda. Para o sistema, as regras ficam fora do agente.</p></div>
+</section>
+
+<section class="sec" id="descobrir" data-title="Descobrir e chamar">
+  <div class="eyebrow">Slide 21</div>
+  <h2>Como funciona: descobrir e chamar</h2>
+  <div class="lab">
+    <div class="seq">
+      <div class="lanes">
+        <div class="heads"><div>Agente (cliente)</div><div>Servidor MCP</div></div>
+        <div id="seq-msgs" style="display:grid;gap:4px"></div>
+        <div class="row" style="justify-content:center;margin-top:6px">
+          <button class="btn" id="seq-prev">Anterior</button>
+          <button class="btn primary" id="seq-next">Próxima</button>
+        </div>
+      </div>
+      <pre class="code" id="seq-json"></pre>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="leitura-mutavel" data-title="Leitura × mutável">
+  <div class="eyebrow">Slide 22</div>
+  <h2>Tool de leitura × tool mutável</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th></th><th>Leitura</th><th>Mutável</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Exemplo</td><td><code>get_fleet_state</code></td><td><code>set_speed</code></td></tr>
+        <tr><td class="k">Muda o mundo?</td><td><span class="chip ok">Não</span></td><td><span class="chip bad">Sim</span></td></tr>
+        <tr><td class="k">Repetir é seguro?</td><td><span class="chip ok">Sim</span></td><td><span class="chip warn">Só com proteção</span></td></tr>
+        <tr><td class="k">Exige versão e chave?</td><td>Não</td><td>Sim</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="row"><a class="chip acc" href="#versao">Proteção 1: versão de estado</a><a class="chip acc" href="#idempotencia">Proteção 2: chave de idempotência</a></div>
+</section>
+
+<section class="sec" id="versao" data-title="Versão de estado">
+  <div class="eyebrow">Slide 23</div>
+  <h2>Proteção 1: versão de estado</h2>
+  <ol class="steps" id="steps-ver">
+    <li><b>Agente lê o navio</b><span>S1-FAROL, state_version = 1</span></li>
+    <li><b>Outro comando altera o navio</b><span>a versão passa a 2</span></li>
+    <li class="bad"><b>Agente envia com expected_state_version = 1</b><span>Servidor: STATE_VERSION_CONFLICT</span></li>
+  </ol>
+  <div class="row"><button class="btn" data-play="steps-ver">Reproduzir</button></div>
+  <div class="callout"><p><b>O que o agente faz:</b> relê o estado e decide de novo. Nunca repete às cegas. Evita agir com informação velha.</p></div>
+</section>
+
+<section class="sec" id="idempotencia" data-title="Idempotência">
+  <div class="eyebrow">Slide 24</div>
+  <h2>Proteção 2: idempotência</h2>
+  <ol class="steps" id="steps-idem">
+    <li><b>Envia set_speed com a chave K</b><span>committed, state_version 2</span></li>
+    <li><b>Timeout: não sei se aplicou</b><span>o agente não sabe o que houve</span></li>
+    <li class="ok"><b>Reenvia a MESMA chave K</b><span>duplicate: true, versão continua 2</span></li>
+  </ol>
+  <div class="row"><button class="btn" data-play="steps-idem">Reproduzir</button></div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Situação</th><th>O que fazer</th></tr></thead>
+      <tbody>
+        <tr><td>Timeout, não sei se aplicou</td><td><span class="chip ok">seguro</span> Reenviar com a mesma chave</td></tr>
+        <tr><td>Reenviar com chave nova</td><td><span class="chip bad">perigoso</span> Pode duplicar o efeito</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout"><p>Chave do exercício: <code>treino:S1-FAROL:SET_SPEED:v1</code> (decisão + versão lida)</p></div>
+</section>
+
+<section class="sec" id="erros" data-title="Erros são dados">
+  <div class="eyebrow">Slide 25</div>
+  <h2>Erros são dados, não exceções</h2>
+  <pre class="code" id="err-json"></pre>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Código</th><th>O grafo faz</th></tr></thead>
+      <tbody>
+        <tr><td><code>INVALID_SCHEMA</code></td><td>Não repete; informa</td></tr>
+        <tr><td><code>STATE_VERSION_CONFLICT</code></td><td>Relê o estado e decide de novo</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout warn"><p><b>Conflito de versão não é motivo para repetir às cegas.</b> No desafio, só alguns erros permitem nova tentativa (indisponibilidade, prazo estourado e limite de taxa), sempre com a mesma chave.</p></div>
+</section>
+
+<section class="sec" id="camadas" data-title="Defesa em camadas">
+  <div class="eyebrow">Slide 26</div>
+  <h2>Defesa em camadas</h2>
+  <div class="lab">
+    <div class="seg" id="df-scn"></div>
+    <div class="layers" id="df-layers"></div>
+    <div class="row"><button class="btn primary" id="df-run">Enviar a ação</button></div>
+    <div class="banner info" id="df-msg" aria-live="polite">Escolha a situação, ligue ou desligue camadas e envie.</div>
+  </div>
+  <div class="callout"><p>Nenhuma camada sozinha basta. Juntas, reduzem o risco de uma ação errada chegar ao navio.</p></div>
+</section>
+
+<section class="sec" id="identidade" data-title="Identidade">
+  <div class="eyebrow">Slide 27</div>
+  <h2>Identidade no desafio final</h2>
+  <div class="grid2">
+    <div class="card">
+      <span class="lbl">No exercício</span>
+      <ul class="clean"><li>A identidade é simples</li><li>O servidor confia no que recebe</li><li>Foco em versão e idempotência</li></ul>
+    </div>
+    <div class="card after">
+      <span class="lbl">No desafio</span>
+      <ul class="clean"><li>O servidor deriva o agente do token assinado</li><li>Rejeita <code>team_id</code> ou <code>agent_id</code> no payload</li><li>Token de outra equipe não acessa os seus navios</li></ul>
+    </div>
+  </div>
+  <details class="qa"><summary>Que ataque isso evita?</summary><p>Um agente se passar por outro, ou por outra equipe.</p></details>
+</section>
+
+<section class="sec" id="armadilhas-mcp" data-title="Armadilhas de MCP">
+  <div class="eyebrow">Slide 28</div>
+  <h2>Armadilhas de MCP</h2>
+  <div class="flips" id="flips-mcp"></div>
+</section>
+
+<section class="sec" id="nivel" data-title="O nível que subimos">
+  <div class="eyebrow">Slide 29</div>
+  <h2>O nível que estamos subindo</h2>
+  <div class="grid2">
+    <div class="card"><span class="lbl">Antes</span><h3>Um agente que responde, com ferramentas locais</h3></div>
+    <div class="card after"><span class="lbl">Agora</span><h3>Um sistema que age, com vários agentes e proteções</h3></div>
+  </div>
+  <div class="grid4" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="card"><h3>De uma cabeça para papéis</h3><p>Quem propõe não é quem confere</p></div>
+    <div class="card"><h3>De texto para ação</h3><p>A decisão muda o estado do navio</p></div>
+    <div class="card"><h3>Do modelo às camadas</h3><p>Revisor, código e servidor protegem juntos</p></div>
+  </div>
+</section>
+
+<section class="sec" id="resumo" data-title="Resumo da aula">
+  <div class="eyebrow">Slide 30</div>
+  <h2>Resumo da aula</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Multiagente</h3>
+      <ul class="clean">
+        <li>Agente = papel + saída estruturada + estado</li>
+        <li>Proponente e revisor independentes</li>
+        <li>Colaboram pelo estado compartilhado</li>
+        <li>Laço com limite de rodadas</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>MCP</h3>
+      <ul class="clean">
+        <li>Servidor expõe tools com contrato</li>
+        <li>Tool mutável: versão e chave de idempotência</li>
+        <li>Erros são dados; conflito exige reler</li>
+        <li>Defesa em camadas: revisor, código, servidor</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="fixar" data-title="Para fixar">
+  <div class="eyebrow">Slide 31</div>
+  <h2>Para fixar</h2>
+  <div style="display:grid;gap:8px" id="fixar-list"></div>
+</section>
+
+<section class="sec" id="proximo" data-title="Próximo passo: RAG">
+  <div class="eyebrow">Slide 32</div>
+  <h2>Próximo passo: RAG</h2>
+  <p class="prose">Os agentes aprenderam a colaborar e a agir com segurança. Na semana 3, as regras e os dados deixam de estar no prompt e passam a chegar por documentos.</p>
+  <div class="grid2">
+    <div class="card"><span class="lbl">RAG</span><p>O agente consulta o manual e o relatório da frota</p></div>
+    <div class="card"><span class="lbl">Nível 5 da escada</span><p>Conhecimento e visibilidade</p></div>
+  </div>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hl(v){const s=typeof v==='string'?v:JSON.stringify(v,null,2);let out='',last=0,m;const re=/("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\b\d+(?:\.\d+)?\b/g;
+  while((m=re.exec(s))){out+=esc(s.slice(last,m.index));
+    if(m[1])out+=m[2]?`<span class="tk">${esc(m[1])}</span>${m[2]}`:`<span class="ts">${esc(m[1])}</span>`;
+    else if(m[3])out+=`<span class="tb">${m[3]}</span>`;else out+=`<span class="tn">${m[0]}</span>`;last=re.lastIndex;}
+  return out+esc(s.slice(last));}
+const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wait=ms=>new Promise(r=>setTimeout(r,reduce?Math.min(ms,150):ms));
+
+/* Navegação */
+const toc=$('#toc'),tocLinks=$$('#toc a');
+const closeToc=()=>{toc.classList.remove('open');$('#toc-open').setAttribute('aria-expanded','false');};
+$('#toc-open').addEventListener('click',()=>{toc.classList.add('open');$('#toc-open').setAttribute('aria-expanded','true');$('#toc-close').focus();});
+$('#toc-close').addEventListener('click',closeToc);tocLinks.forEach(a=>a.addEventListener('click',closeToc));
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;
+  tocLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));$('#where').textContent=e.target.dataset.title;}});},{rootMargin:'-35% 0px -60% 0px'});
+$$('main [data-title]').forEach(s=>io.observe(s));
+const prog=$('#progress');
+function onScroll(){const h=document.documentElement,max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?h.scrollTop/max*100:0)+'%';}
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* Escada (slide 2) */
+const NIVEIS=[
+ {n:0,nome:'LLM puro',sub:'pergunta e resposta',quando:'Semana 1',ex:'prompt de uma linha'},
+ {n:1,nome:'Fluxo em grafo',sub:'etapas fixas com LLM',quando:'Semana 1',ex:'3 nós'},
+ {n:2,nome:'Agente com decisão e ferramentas',sub:'condicional, tools, humano',quando:'Semana 1',ex:'despachante'},
+ {n:3,nome:'Multiagente',sub:'papéis e revisão independente',quando:'HOJE',ex:'exercício 1'},
+ {n:4,nome:'Agentes que agem via protocolo',sub:'MCP, versão, idempotência',quando:'HOJE',ex:'exercício 2'},
+ {n:5,nome:'Conhecimento e visibilidade',sub:'RAG, observabilidade, segurança',quando:'Semanas 3 e 4',ex:null}];
+const lad=$('#ladder'),ladD=$('#ladder-detail');
+NIVEIS.forEach((l,i)=>{const b=document.createElement('button');b.className='step'+(l.quando==='HOJE'?' today':'');b.style.height=(28+i*14.4)+'%';
+  b.setAttribute('aria-pressed','false');b.setAttribute('aria-label',`Nível ${l.n}: ${l.nome}`);
+  b.innerHTML=`<span class="lv">N${l.n}${l.quando==='HOJE'?' · HOJE':''}</span><span class="nm">${esc(l.nome)}</span>`;
+  b.addEventListener('click',()=>selLevel(i));lad.appendChild(b);});
+function selLevel(i){const l=NIVEIS[i];$$('.step',lad).forEach((b,j)=>b.setAttribute('aria-pressed',String(j===i)));
+  ladD.innerHTML=`<div class="big">${l.n}</div><div style="display:grid;gap:6px"><h3>${esc(l.nome)}</h3><span>${esc(l.sub)}</span><div class="row"><span class="chip ${l.quando==='HOJE'?'today':''}">${esc(l.quando)}</span>${l.ex?`<span class="chip acc">${esc(l.ex)}</span>`:''}</div></div>`;}
+selLevel(3);
+
+/* Régua (slide 6) */
+const gx=v=>((v-8)/10*100)+'%',gShip=$('#g-ship'),gMsg=$('#g-msg'),gauge=$('#gauge');
+for(let v=8;v<=18;v++){const t=document.createElement('span');t.className='tick';t.style.left=gx(v);t.textContent=v;gauge.appendChild(t);}
+$('#g-limit').style.left=gx(12);
+function gReset(){gShip.style.left=gx(14);gShip.querySelector('b').textContent='S1-FAROL · 14 nós';gMsg.className='banner info';gMsg.textContent='S1-FAROL a 14 nós, rota direta, tempestade à frente.';$('#g-propor').disabled=false;}
+$('#g-propor').addEventListener('click',async()=>{$('#g-propor').disabled=true;gShip.style.left=gx(13);gShip.querySelector('b').textContent='proposta · 13 nós';
+  gMsg.className='banner warn';gMsg.textContent='"Reduza 1 nó" → 13 nós.';await wait(1300);
+  gMsg.className='banner bad';gMsg.textContent='13 é maior que 12. Quem percebe o erro? Se ninguém confere, o comando inseguro segue para o navio.';});
+$('#g-reset').addEventListener('click',gReset);gReset();
+
+/* Padrões (slide 10) */
+const N=(t,c='')=>`<span class="node ${c}">${t}</span>`,A=t=>`<span class="arr">${t}</span>`;
+const PADROES=[
+ {nome:'Proponente e revisor',como:'Um propõe, outro aprova ou rejeita',uso:'SIM (exercício 1)',cls:'today',
+  d:`${N('Proponente','agent')}${A('→')}${N('Revisor','agent')}${A('→')}<span class="mini-col">${N('aprova')}${N('rejeita')}</span>`},
+ {nome:'Supervisor',como:'Um agente distribui tarefas entre especialistas',uso:'Não',cls:'',
+  d:`${N('Supervisor','agent')}${A('→')}<span class="mini-col">${N('Especialista')}${N('Especialista')}${N('Especialista')}</span>`},
+ {nome:'Handoff',como:'Um agente passa o controle para outro',uso:'Não',cls:'',
+  d:`${N('Agente A','agent')}${A('⇒ controle ⇒')}${N('Agente B','agent')}`},
+ {nome:'Paralelo',como:'O mesmo agente roda para vários itens (ex.: um por navio)',uso:'Bônus',cls:'warn',
+  d:`<span class="mini-col">${N('agente · S1-FAROL','agent')}${N('agente · S2-MARE','agent')}${N('agente · S3-CORAL','agent')}</span>`},
+ {nome:'Pipeline',como:'A saída de um agente é a entrada do próximo',uso:'Não',cls:'',
+  d:`${N('Agente 1','agent')}${A('→')}${N('Agente 2','agent')}${A('→')}${N('Agente 3','agent')}`}];
+const pt=$('#pat-tabs'),pp=$('#pat-panel');
+PADROES.forEach((p,i)=>{const b=document.createElement('button');b.className='tab';b.setAttribute('role','tab');b.id='pat-'+i;
+  b.innerHTML=`${esc(p.nome)} <span class="chip ${p.cls}">${esc(p.uso)}</span>`;b.addEventListener('click',()=>selPat(i));pt.appendChild(b);});
+function selPat(i){const p=PADROES[i];$$('.tab',pt).forEach((b,j)=>b.setAttribute('aria-selected',String(j===i)));
+  pp.innerHTML=`<p><b>${esc(p.nome)}:</b> ${esc(p.como)}</p><div class="mini">${p.d}</div>`;}
+selPat(0);
+
+/* Routing (slide 11) */
+function rt(){const ap=$('input[name=rt-ap]:checked').value==='1',rd=+$('input[name=rt-rd]:checked').value,r=ap?'fin':(rd<2?'nav':'esc');
+  $$('#rt-rules tr').forEach(tr=>tr.querySelectorAll('td').forEach(td=>td.classList.toggle('now',tr.dataset.r===r)));}
+$$('input[name=rt-ap],input[name=rt-rd]').forEach(i=>i.addEventListener('change',rt));rt();
+
+/* Exemplo (slide 12) */
+const LIMITES={direta:12,protegida:15},MAX_RODADAS=2;
+const NAVIOS={'S1-FAROL':{rota:'direta',vel:14,tempestade:true},'S2-MARE':{rota:'protegida',vel:16,tempestade:true},'S3-CORAL':{tempestade:false}};
+function planejar(nv){const ev=[];let fb=null;
+  for(let r=1;r<=MAX_RODADAS;r++){
+    let p;
+    if(!nv.tempestade)p={acao:'NO_ACTION'};
+    else p={acao:'SET_SPEED',v:fb!=null?fb:nv.vel-1};
+    ev.push({no:'navegador',edge:r>1?'loop':null,who:`Rodada ${r} · Navegador`,html:p.acao==='NO_ACTION'?'Propõe <b>NO_ACTION</b>':`Propõe <b>SET_SPEED ${p.v} nós</b>${fb!=null?' (usa o feedback)':''}`});
+    const lim=nv.rota?LIMITES[nv.rota]:null,ok=p.acao==='NO_ACTION'||p.v<=lim;
+    ev.push({no:'revisor',edge:'nr',who:`Rodada ${r} · Revisor`,html:ok?`<span class="chip ok">APROVA</span>`:`<span class="chip bad">REJEITA</span> limite é ${lim} nós na rota ${nv.rota}`});
+    if(ok){const d=p.acao==='SET_SPEED'?`SET_SPEED ${p.v}`:'NO_ACTION';
+      ev.push({no:'finalizar',edge:'fin',who:'Decisão',html:`<b>${d}</b>`,fim:['ok',`${d} · ${r} rodada${r>1?'s':''}`]});break;}
+    if(r<MAX_RODADAS)fb=lim;
+    else ev.push({no:'escalar',edge:'esc',who:'Escalar',html:'rodada = 2 sem acordo: sem comando',fim:['bad','Escalado, sem comando']});
+  }
+  return ev;}
+const sim={ev:[],i:0,timer:null};
+function simStop(){if(sim.timer){clearInterval(sim.timer);sim.timer=null;}$('#sim-play').textContent='Executar tudo';}
+function simReset(){simStop();const id=$('input[name=sim-navio]:checked').value;sim.ev=planejar(NAVIOS[id]);sim.i=0;simRender();}
+function simRender(){const cur=sim.ev[sim.i-1];
+  ['navegador','revisor','routing','finalizar','escalar'].forEach(n=>$('#n-'+n).classList.toggle('on',!!cur&&cur.no===n));
+  ['nr','rr','fin','esc','loop'].forEach(e=>$('#e-'+e).classList.toggle('on',!!cur&&cur.edge===e));
+  if(cur&&(cur.no==='finalizar'||cur.no==='escalar'))$('#n-routing').classList.add('on');
+  $('#sim-tl').innerHTML=sim.ev.slice(0,sim.i).map((e,k)=>`<li class="${k===sim.i-1?'cur':''}"><span class="who">${esc(e.who)}</span><span>${e.html}</span></li>`).join('');
+  const done=sim.i>=sim.ev.length;$('#sim-step').disabled=done;$('#sim-play').disabled=done;
+  const b=$('#sim-banner');
+  if(done&&cur&&cur.fim){b.className='banner '+cur.fim[0];b.textContent='Resultado: '+cur.fim[1];}
+  else{b.className='banner info';b.textContent=sim.i===0?'Clique em "Próximo passo".':`Passo ${sim.i} de ${sim.ev.length}`;}
+  if(done)simStop();}
+$('#sim-step').addEventListener('click',()=>{simStop();if(sim.i<sim.ev.length){sim.i++;simRender();}});
+$('#sim-play').addEventListener('click',()=>{if(sim.timer){simStop();return;}if(sim.i>=sim.ev.length)return;$('#sim-play').textContent='Pausar';
+  sim.timer=setInterval(()=>{if(sim.i<sim.ev.length){sim.i++;simRender();}else simStop();},reduce?400:1100);});
+$('#sim-reset').addEventListener('click',simReset);
+$$('input[name=sim-navio]').forEach(i=>i.addEventListener('change',simReset));simReset();
+
+/* Armadilhas (slides 16 e 28) */
+const ARM_MULTI=[
+ ['Mesmo prompt nos dois agentes','Não é revisão, é eco','Papéis e regras diferentes'],
+ ['Laço sem limite','Gasta tempo e tokens sem fim','MAX_RODADAS no código'],
+ ['Revisor vê a justificativa','Perde a independência','Passar só a ação'],
+ ['Agentes demais','Mais latência e custo','Só o necessário'],
+ ['Regra crítica só no prompt','O modelo pode errar','Validar também em código']];
+const ARM_MCP=[
+ ['Reenviar com chave nova depois de timeout',null,'Reenviar com a mesma chave'],
+ ['Repetir às cegas após conflito de versão',null,'Reler o estado e decidir de novo'],
+ ['Confiar só no revisor',null,'Validar também em código'],
+ ['Esquecer async e await nos nós que chamam o servidor',null,'Nós assíncronos e ainvoke'],
+ ['Estado do servidor em memória',null,'Reiniciar o servidor para voltar ao início'],
+ ['Módulo langchain.mcp em beta',null,'Fixar versões e conferir a documentação']];
+function flips(id,data,lbl){const el=$('#'+id);data.forEach(([t,w,f])=>{const b=document.createElement('button');b.className='flip';b.setAttribute('aria-expanded','false');
+  b.innerHTML=`<span class="t">${esc(t)}</span>${w?`<span class="why">${esc(w)}</span>`:''}<span class="hint">ver ${lbl.toLowerCase()} →</span><span class="fix"><b>${lbl}</b>${esc(f)}</span>`;
+  b.addEventListener('click',()=>b.setAttribute('aria-expanded',b.getAttribute('aria-expanded')==='true'?'false':'true'));el.appendChild(b);});}
+flips('flips-multi',ARM_MULTI,'Contramedida');flips('flips-mcp',ARM_MCP,'Defesa');
+
+/* Cadeia MCP (slide 18) */
+const chain=$$('#chain .node');let chBusy=false;
+$('#ch-go').addEventListener('click',async()=>{if(chBusy)return;chBusy=true;const m=$('#ch-msg');chain.forEach(n=>n.classList.remove('on','blocked'));m.className='banner info';
+  for(const n of chain){chain.forEach(x=>x.classList.remove('on'));n.classList.add('on');m.textContent=n.textContent;await wait(700);}
+  m.className='banner ok';m.textContent='A decisão chegou ao simulador passando pelo servidor MCP.';chBusy=false;});
+$('#ch-short').addEventListener('click',()=>{chain.forEach(n=>n.classList.remove('on','blocked'));chain[1].classList.add('on');chain[4].classList.add('blocked');
+  const m=$('#ch-msg');m.className='banner bad';m.textContent='Bloqueado: os agentes não falam direto com o simulador. O servidor MCP é a porta de entrada e impõe as regras.';});
+
+/* Descobrir e chamar (slide 21) */
+const SEQ=[
+ {dir:'r',t:'1  list_tools()',j:{method:'tools/list'}},
+ {dir:'l',t:'2  catálogo: nome, descrição, schema',j:{tools:[{name:'get_fleet_state',description:'...',inputSchema:'...'},{name:'set_speed',description:'...',inputSchema:'...'}]}},
+ {dir:'r',t:'3  set_speed(navio, 12, versão, chave)',j:{name:'set_speed',arguments:{navio:'S1-FAROL',velocidade:12,expected_state_version:1,chave:'treino:S1-FAROL:SET_SPEED:v1'}}},
+ {dir:'l',t:'4  resultado (committed) ou erro',j:{status:'committed',state_version:2}}];
+let seqI=0;const sm=$('#seq-msgs');
+SEQ.forEach((s,i)=>{const b=document.createElement('button');b.className='msg '+s.dir;b.innerHTML=`<span class="txt">${esc(s.t)}</span><span class="line"></span>`;b.addEventListener('click',()=>seqSel(i));sm.appendChild(b);});
+function seqSel(i){seqI=i;$$('.msg',sm).forEach((b,j)=>b.setAttribute('aria-current',String(j===i)));$('#seq-json').innerHTML=hl(SEQ[i].j);
+  $('#seq-prev').disabled=i===0;$('#seq-next').disabled=i===SEQ.length-1;}
+$('#seq-prev').addEventListener('click',()=>seqSel(Math.max(0,seqI-1)));$('#seq-next').addEventListener('click',()=>seqSel(Math.min(SEQ.length-1,seqI+1)));seqSel(0);
+
+/* Passos (slides 23 e 24) */
+$$('[data-play]').forEach(b=>b.addEventListener('click',async()=>{const lis=$$('#'+b.dataset.play+' li');b.disabled=true;
+  for(const li of lis){lis.forEach(x=>x.classList.remove('on'));li.classList.add('on');await wait(1100);}
+  lis.forEach(x=>x.classList.remove('on'));b.disabled=false;}));
+$('#err-json').innerHTML=hl({error:{code:'STATE_VERSION_CONFLICT',message:'esperado 1, atual 2'}});
+
+/* Defesa em camadas (slide 26) */
+const CAMADAS=[{id:'rev',t:'Revisor (LLM)',d:'Julga a proposta · pode errar'},{id:'cod',t:'Validação em código',d:'Barra o que o revisor deixou passar'},{id:'srv',t:'Servidor MCP',d:'Barra o que o cliente fizer errado'}];
+const SITS=[
+ {nome:'Revisor aprova 13 nós por engano',ruim:true,rev:[false,'aprovou'],cod:[true,'13 > 12: barrado'],srv:[false,'versão e chave ok'],acao:'SET_SPEED 13'},
+ {nome:'Decisão com dado velho (v1, atual v2)',ruim:true,rev:[false,'aprovou'],cod:[false,'12 ≤ 12: ok'],srv:[true,'STATE_VERSION_CONFLICT'],acao:'comando com dado velho'},
+ {nome:'Proposta correta: 12 nós',ruim:false,rev:[false,'aprovou'],cod:[false,'12 ≤ 12: ok'],srv:[false,'committed'],acao:'SET_SPEED 12'}];
+const dfOn={rev:true,cod:true,srv:true};let dfSit=0,dfBusy=false;
+SITS.forEach((s,i)=>{const l=document.createElement('label');l.innerHTML=`<input type="radio" name="df-s" id="df-s-${i}" value="${i}" ${i===0?'checked':''}><span>${esc(s.nome)}</span>`;
+  l.querySelector('input').addEventListener('change',()=>{dfSit=i;dfDraw();});$('#df-scn').appendChild(l);});
+function dfDraw(){$('#df-layers').innerHTML=CAMADAS.map(c=>`<div class="layer ${dfOn[c.id]?'':'off'}" id="ly-${c.id}"><span class="t">${c.t}</span><span class="d">${c.d}</span><label class="switch" style="font-size:.8rem"><input type="checkbox" id="lyon-${c.id}" ${dfOn[c.id]?'checked':''}> ligada</label><span class="res"></span></div>`).join('')+
+   `<div class="layer end" id="ly-navio"><span class="t">Navio</span><span class="res"></span></div>`;
+  CAMADAS.forEach(c=>$('#lyon-'+c.id).addEventListener('change',e=>{dfOn[c.id]=e.target.checked;dfDraw();}));
+  const m=$('#df-msg');m.className='banner info';m.textContent='Escolha a situação, ligue ou desligue camadas e envie.';}
+$('#df-run').addEventListener('click',async()=>{if(dfBusy)return;dfBusy=true;$('#df-run').disabled=true;dfDraw();const s=SITS[dfSit],m=$('#df-msg');let barrado=null;
+  for(const c of CAMADAS){const ly=$('#ly-'+c.id),res=ly.querySelector('.res');
+    if(!dfOn[c.id]){res.textContent='desligada';await wait(400);continue;}
+    ly.classList.add('active');await wait(700);ly.classList.remove('active');
+    const [bloq,txt]=s[c.id];res.textContent=txt;if(bloq){ly.classList.add('block');barrado=c;break;}ly.classList.add('pass');}
+  const nv=$('#ly-navio');
+  if(barrado){m.className='banner ok';m.textContent=`Barrado em: ${barrado.t}`;}
+  else{nv.querySelector('.res').textContent=s.acao;
+    if(s.ruim){nv.classList.add('hit-bad');m.className='banner bad';m.textContent=`Ação errada chegou ao navio: ${s.acao}`;}
+    else{nv.classList.add('hit-ok');m.className='banner ok';m.textContent='Comando seguro aplicado: SET_SPEED 12';}}
+  dfBusy=false;$('#df-run').disabled=false;});
+dfDraw();
+
+/* Para fixar (slide 31) */
+const FIX=[
+ ['Por que o revisor não deve ver o raciocínio do navegador?','Uma justificativa bem escrita pode "convencer" o revisor. Ele precisa julgar o fato: 13 nós é maior que 12 nós.'],
+ ['Por que limitar as rodadas do laço?','Sem limite, o laço gasta tempo e tokens sem fim. MAX_RODADAS = 2 fica no código; sem acordo, escala sem comando.'],
+ ['O que o STATE_VERSION_CONFLICT protege? Por que não repetir às cegas?','Evita agir com informação velha. O agente relê o estado e decide de novo.'],
+ ['Por que repetir com a mesma chave é seguro e com chave nova não é?','Mesma chave: duplicate: true, o efeito não se repete. Chave nova: pode duplicar o efeito.'],
+ ['O revisor aprovou. Por que ainda validar em código?','O modelo pode errar. A validação em código garante as regras, independente do modelo.'],
+ ['No desafio final, como o servidor sabe qual agente enviou o comando?','Deriva o agente do token assinado e rejeita team_id ou agent_id no payload.']];
+$('#fixar-list').innerHTML=FIX.map(([q,a])=>`<details class="qa"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('');
+})();
+</script>
+</body>
+</html>
